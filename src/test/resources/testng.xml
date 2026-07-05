@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+
+<!--
+    Master suite for the "My Demo App" Android UI regression pack.
+
+    parallel="classes" with thread-count="2" is safe here because:
+      - Each BaseTest.setUp() creates a brand-new AndroidDriver/app session
+        per test method, stored in a ThreadLocal.
+      - Test classes do not share mutable state.
+
+    Caveat: running classes in parallel requires either multiple emulators/
+    devices attached to the Appium server (or a grid), since a single
+    UiAutomator2 session can only drive one app instance at a time. Against
+    a single local emulator, override this to parallel="none" (e.g.
+    `mvn test -Dsurefire.suiteXmlFiles=...` with a single-emulator variant,
+    or simply edit parallel/thread-count below) to avoid session contention.
+-->
+<suite name="MyDemoAppAndroidSuite" parallel="classes" thread-count="2" verbose="1">
+
+    <test name="LoginFlow">
+        <classes>
+            <class name="tests.LoginTests"/>
+        </classes>
+    </test>
+
+    <test name="CatalogFlow">
+        <classes>
+            <class name="tests.CatalogTests"/>
+        </classes>
+    </test>
+
+    <test name="CartFlow">
+        <classes>
+            <class name="tests.CartTests"/>
+        </classes>
+    </test>
+
+    <test name="DrawerMenuFlow">
+        <classes>
+            <class name="tests.DrawerMenuTests"/>
+        </classes>
+    </test>
+
+</suite>

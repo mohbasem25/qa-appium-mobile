@@ -1,0 +1,121 @@
+name: Appium Android UI Tests
+
+# NOTE ON MOBILE CI:
+# Booting a full Android emulator, installing Appium/UiAutomator2, and
+# driving native UI gestures inside GitHub-hosted runners is inherently
+# slower and flakier than web CI (cold emulator boot, KVM/HAXM
+# virtualization overhead, occasional ANR/timeout noise). This workflow is
+# included to demonstrate mobile CI capability - a differentiator most QA
+# portfolios skip entirely - but day-to-day development and debugging is
+# expected to happen locally against a real device or a persistent local
+# emulator, where iteration is far faster and more reliable.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  android-ui-tests:
+    name: Run Appium suite on Android emulator
+    runs-on: macos-14 # macOS runners have hardware-accelerated (HAXM) emulator support
+    timeout-minutes: 45
+
+    strategy:
+      matrix:
+        api-level: [33]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Set up Node.js (required by the Appium server)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Appium and the UiAutomator2 driver
+        run: |
+          npm install -g appium@2
+          appium driver install uiautomator2
+
+      - name: Enable KVM acceleration (no-op on macOS runners, kept for Linux portability)
+        if: runner.os == 'Linux'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Download My Demo App APK
+        run: |
+          mkdir -p apps
+          curl -L \
+            -o apps/Android-MyDemoAppRN.apk \
+            "https://github.com/saucelabs/my-demo-app-android/releases/latest/download/Android-MyDemoAppRN.apk"
+
+      - name: Cache Android AVD
+        uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-${{ matrix.api-level }}
+
+      - name: Create AVD snapshot for caching
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          target: google_apis
+          arch: x86_64
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: echo "Generated AVD snapshot for caching."
+
+      - name: Start Appium server in the background
+        run: |
+          appium --log appium.log &
+          npx wait-on http://127.0.0.1:4723/status --timeout 60000
+
+      - name: Boot emulator and run Appium/TestNG suite
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          target: google_apis
+          arch: x86_64
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            adb wait-for-device
+            mvn -B test \
+              -Dappium.deviceName="Android Emulator" \
+              -Dappium.platformVersion="13.0" \
+              -Dappium.app.path="$(pwd)/apps/Android-MyDemoAppRN.apk"
+
+      - name: Upload Appium server log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appium-server-log
+          path: appium.log
+          if-no-files-found: ignore
+
+      - name: Upload TestNG/Surefire report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports/
+          if-no-files-found: ignore
