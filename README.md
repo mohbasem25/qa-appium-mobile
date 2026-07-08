@@ -1,5 +1,7 @@
 # qa-appium-mobile
 
+[![CI](https://github.com/mohbasem25/qa-appium-mobile/actions/workflows/appium-android.yml/badge.svg)](https://github.com/mohbasem25/qa-appium-mobile/actions/workflows/appium-android.yml)
+
 Mobile UI test automation framework built with **Appium + Java + TestNG**,
 targeting the [Sauce Labs "My Demo App"](https://github.com/saucelabs/my-demo-app-android)
 Android application - an open-source shopping app widely used as an Appium
