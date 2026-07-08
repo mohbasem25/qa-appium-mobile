@@ -166,6 +166,19 @@ is materially faster and is the intended primary workflow; CI serves as a
 regression safety net and a portfolio signal that mobile CI integration -
 something most QA portfolios omit entirely - has actually been implemented.
 
+**Known issue in this environment:** on GitHub's current `macos-14` (Apple
+Silicon) runners, the emulator has repeatedly failed to finish booting inside
+`reactivecircus/android-emulator-runner` (`adb: device 'emulator-5554' not
+found` until the action's boot-timeout is hit), even after correcting the
+image architecture to `arm64-v8a` to match the host. This looks like an
+upstream runner/action compatibility gap rather than a bug in this
+repository's Appium/TestNG code, which is unit-verified independently of the
+emulator. If you fork this repo and hit the same failure, options that are
+worth trying next: pinning to an older `macos-13` (Intel) runner with
+`arch: x86_64`, using a self-hosted runner, or switching to a device-farm
+based CI provider (e.g. Sauce Labs, BrowserStack) instead of an
+in-runner emulator.
+
 ## Why this project
 
 This project is meant to demonstrate:
